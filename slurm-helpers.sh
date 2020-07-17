@@ -185,16 +185,18 @@ function myq ()
   if (( $longfmt )) ; then
     local fields='%.18i %.4t %8q %10P %8u %8a %20j %.6D %.6C %.10l %.10L %.20V %.20S %.10Q %.20r %.30E'
     local pf=14
+    local rf=15 # reason field
     local usetimef="qt=dhms(t-\$12); out=gensub (/[[:blank:]]+[^[:blank:]]+/, sprintf(\"%21s\",qt),12); if (\$13~/[0-9]+/) {st=dhms(\$13-t) } else if (\$NF~/Resources/ && t-\$12>180) {st=\">4d\"} else {st=\$13}; out=gensub (/[[:blank:]]+[^[:blank:]]+/, sprintf(\"%21s\",st), 13, out);"
   else
     local fields='%.18i %.4t %8q %8u %20j %.6D %.10L %.10Q %.12r'
     local pf=8  # priority field
+    local rf=9 # reason field
     local usetimef='out=$0;'
   fi
   fields+=" $addfields"
   grepargs="$user $*"
   local awkscr="$timef NR==1 { gsub(/SUBMIT_TIME/, \"TIME_QUEUED\") ; print } NR>1 { $usetimef print out | \"sort -rsn -k$pf\" }"
-  local wholeq=$(SLURM_TIME_FORMAT='%s' squeue -r -t PD,R,CF,CG -o "$fields" | awk "$awkscr" | awk 'BEGIN { spos=0 ; rpos=0 ; notready="" } NR == 1 { print "0    Q_pos " $0 ; next } $2~/^[RC]/ { print "1        0 " $0; next } $NF~/Priority|Resources|ReqNodeNotAvail/ { line=$0 ; if ($3=="shared") { spos+=1 ; pos=spos } else {rpos+=1 ; pos=rpos } ; printf "2 %8d %s\n",pos,$0 ; next } { printf "3 %8s %s\n", "NotReady", $0 } ')
+  local wholeq=$(SLURM_TIME_FORMAT='%s' squeue -r -t PD,R,CF,CG -o "$fields" | awk "$awkscr" | awk 'BEGIN { spos=0 ; rpos=0 ; notready="" } NR == 1 { print "0    Q_pos " $0 ; next } $2~/^[RC]/ { print "1        0 " $0; next } $'$rf'~/Priority|Resources|ReqNodeNotAvail/ { line=$0 ; if ($3=="shared") { spos+=1 ; pos=spos } else {rpos+=1 ; pos=rpos } ; printf "2 %8d %s\n",pos,$0 ; next } { printf "3 %8s %s\n", "NotReady", $0 } ')
   header=$(head -1 <<< "$wholeq" | cut -c-${COLUMNS})
   grepargs=${grepargs## }
   if [[ ${#grepargs} -gt 0 ]]; then
